@@ -10,12 +10,39 @@
 #   universal: false
 
 -e file:.
+annotated-types==0.7.0
+    # via pydantic
+anyio==4.8.0
+    # via httpx
+    # via mcp
+    # via sse-starlette
+    # via starlette
+certifi==2025.1.31
+    # via httpcore
+    # via httpx
+click==8.1.8
+    # via uvicorn
 code2prompt-rs==3.0.0
     # via code2prompt-mcp
+h11==0.14.0
+    # via httpcore
+    # via uvicorn
+httpcore==1.0.7
+    # via httpx
+httpx==0.28.1
+    # via code2prompt-mcp
+    # via mcp
+httpx-sse==0.4.0
+    # via mcp
+idna==3.10
+    # via anyio
+    # via httpx
 iniconfig==2.0.0
     # via pytest
 maturin==1.8.3
     # via code2prompt-rs
+mcp==1.4.1
+    # via code2prompt-mcp
 packaging==24.2
     # via pytest
 patchelf==0.17.2.1
@@ -24,5 +51,26 @@ pip==25.0.1
     # via code2prompt-rs
 pluggy==1.5.0
     # via pytest
+pydantic==2.10.6
+    # via mcp
+    # via pydantic-settings
+pydantic-core==2.27.2
+    # via pydantic
+pydantic-settings==2.8.1
+    # via mcp
 pytest==8.3.5
     # via code2prompt-rs
+python-dotenv==1.0.1
+    # via pydantic-settings
+sniffio==1.3.1
+    # via anyio
+sse-starlette==2.2.1
+    # via mcp
+starlette==0.46.1
+    # via mcp
+    # via sse-starlette
+typing-extensions==4.12.2
+    # via pydantic
+    # via pydantic-core
+uvicorn==0.34.0
+    # via mcp
