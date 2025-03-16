@@ -2,14 +2,17 @@
 """
 Code2Prompt MCP Server
 
-An MCP server that allows LLMs to extract context from codebases using code2prompt.
+An MCP server that allows LLMs to extract context from codebases using code2prompt CLI.
 The LLM can control include/exclude patterns to focus on relevant files only.
 """
 
 import logging
-from typing import Dict, List, Optional, Any, Union
+import subprocess
+import json
+import tempfile
+from typing import Dict, List, Optional, Any
 import asyncio
-from code2prompt_rs import Code2Prompt
+import os
 from mcp.server.fastmcp import FastMCP
 
 # Configure logging
@@ -23,6 +26,72 @@ logger = logging.getLogger('code2prompt_mcp')
 # Initialize FastMCP server
 mcp = FastMCP("code2prompt")
 
+async def run_code2prompt(args: List[str]) -> Dict[str, Any]:
+    """
+    Run code2prompt CLI with given arguments and return the result.
+    
+    Args:
+        args: List of command-line arguments for code2prompt
+        
+    Returns:
+        Dictionary with the prompt and metadata
+    """
+    try:
+        # Create a temporary file to store the output
+        with tempfile.NamedTemporaryFile(mode='w+', suffix='.json', delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+        
+        # Add output file and format arguments
+        args.extend(["-O", tmp_path, "-F", "json", "--no-clipboard"])
+        
+        # Run the code2prompt command
+        logger.info(f"Running: code2prompt {' '.join(args)}")
+        process = await asyncio.create_subprocess_exec(
+            "code2prompt", 
+            *args, 
+            stdout=asyncio.subprocess.PIPE, 
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            logger.error(f"Error running code2prompt: {stderr.decode()}")
+            return {"error": stderr.decode()}
+        
+        # Read the output file
+        with open(tmp_path, 'r') as f:
+            content = f.read()
+        
+        # Clean up the temp file
+        os.unlink(tmp_path)
+        
+        # Try to extract token count from stdout
+        token_info = {}
+        stdout_text = stdout.decode()
+        if "Token count:" in stdout_text:
+            try:
+                token_part = stdout_text.split("Token count:")[1].split(",")[0].strip()
+                token_count = int(token_part.replace(",", ""))
+                token_info["token_count"] = token_count
+                
+                if "Model info:" in stdout_text:
+                    model_info = stdout_text.split("Model info:")[1].strip()
+                    token_info["model_info"] = model_info
+            except (ValueError, IndexError):
+                logger.warning("Could not parse token count information")
+        
+        # Return the result
+        return {
+            "prompt": content,
+            "directory": args[-1],
+            **token_info
+        }
+    
+    except Exception as e:
+        logger.exception("Error executing code2prompt")
+        return {"error": str(e)}
+
 @mcp.tool()
 async def get_context(
     path: str = ".",
@@ -31,16 +100,18 @@ async def get_context(
     include_priority: bool = False,
     line_numbers: bool = True,
     relative_paths: bool = True,
-    exclude_from_tree: bool = False,
+    full_directory_tree: bool = False,
     no_codeblock: bool = False,
     follow_symlinks: bool = False,
     hidden: bool = False,
     no_ignore: bool = False,
     template: Optional[str] = None,
-    encoding: str = "cl100k"
+    encoding: Optional[str] = None,
+    tokens: str = "format",
+    sort: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Retrieve context from a codebase using code2prompt with the specified parameters.
+    Retrieve context from a codebase using code2prompt CLI with the specified parameters.
     
     Args:
         path: Path to the codebase
@@ -49,52 +120,64 @@ async def get_context(
         include_priority: Give priority to include patterns
         line_numbers: Add line numbers to code
         relative_paths: Use relative paths
-        exclude_from_tree: Exclude files from tree based on patterns
+        full_directory_tree: List the full directory tree
         no_codeblock: Don't wrap code in markdown blocks
         follow_symlinks: Follow symbolic links
         hidden: Include hidden directories and files
         no_ignore: Skip .gitignore rules
         template: Custom Handlebars template
-        encoding: Token encoding
+        encoding: Token encoding (cl100k, etc.)
+        tokens: Token count format (format or raw)
+        sort: Sort order for files
     
     Returns:
         Dictionary with the prompt and metadata
     """
     logger.info(f"Getting context from {path} with include patterns: {include_patterns}, exclude patterns: {exclude_patterns}")
     
-    try:
-        # Create a Code2Prompt instance - use wrapper for async
-        prompt = await asyncio.to_thread(
-            Code2Prompt,
-            path=path,
-            include_patterns=include_patterns,
-            exclude_patterns=exclude_patterns,
-            include_priority=include_priority,
-            line_numbers=line_numbers,
-            relative_paths=relative_paths,
-            exclude_from_tree=exclude_from_tree,
-            no_codeblock=no_codeblock,
-            follow_symlinks=follow_symlinks,
-            hidden=hidden,
-            no_ignore=no_ignore
-        )
-        
-        # Generate the prompt - use wrapper for async
-        result = await asyncio.to_thread(
-            prompt.generate,
-            template=template, 
-            encoding=encoding
-        )
-        
-        return {
-            "prompt": result.get("prompt", ""),
-            "directory": result.get("directory", ""),
-            "token_count": result.get("token_count", 0),
-            "model_info": result.get("model_info", "")
-        }
-    except Exception as e:
-        logger.exception("Error generating context")
-        return {"error": str(e)}
+    args = []
+    
+    # Add include patterns
+    for pattern in include_patterns:
+        args.extend(["-i", pattern])
+    
+    # Add exclude patterns
+    for pattern in exclude_patterns:
+        args.extend(["-e", pattern])
+    
+    # Add boolean flags
+    if include_priority:
+        args.append("--include-priority")
+    if line_numbers:
+        args.append("-l")
+    if relative_paths:
+        args.append("-L")
+    if full_directory_tree:
+        args.append("--full-directory-tree")
+    if no_codeblock:
+        args.append("--no-codeblock")
+    if follow_symlinks:
+        args.append("-L")
+    if hidden:
+        args.append("--hidden")
+    if no_ignore:
+        args.append("--no-ignore")
+    
+    # Add optional parameters
+    if template:
+        args.extend(["-t", template])
+    if encoding:
+        args.extend(["-c", encoding])
+    if tokens:
+        args.extend(["--tokens", tokens])
+    if sort:
+        args.extend(["--sort", sort])
+    
+    # Add the path argument
+    args.append(path)
+    
+    # Run code2prompt and return the result
+    return await run_code2prompt(args)
 
 @mcp.tool()
 async def get_git_diff(path: str = ".") -> Dict[str, str]:
@@ -108,9 +191,8 @@ async def get_git_diff(path: str = ".") -> Dict[str, str]:
         Dictionary containing the git diff
     """
     try:
-        prompt = await asyncio.to_thread(Code2Prompt, path=path)
-        diff = await asyncio.to_thread(prompt.get_git_diff)
-        return {"diff": diff}
+        args = ["-d", path]
+        return await run_code2prompt(args)
     except Exception as e:
         logger.exception("Error getting git diff")
         return {"error": str(e)}
@@ -133,13 +215,8 @@ async def get_branch_diff(
         Dictionary containing the diff between branches
     """
     try:
-        prompt = await asyncio.to_thread(Code2Prompt, path=path)
-        diff = await asyncio.to_thread(
-            prompt.get_git_diff_between_branches,
-            branch1,
-            branch2
-        )
-        return {"diff": diff}
+        args = ["--git-diff-branch", branch1, branch2, path]
+        return await run_code2prompt(args)
     except Exception as e:
         logger.exception("Error getting branch diff")
         return {"error": str(e)}
@@ -162,9 +239,8 @@ async def get_git_log(
         Dictionary containing the git log
     """
     try:
-        prompt = await asyncio.to_thread(Code2Prompt, path=path)
-        log = await asyncio.to_thread(prompt.get_git_log, branch1, branch2)
-        return {"log": log}
+        args = ["--git-log-branch", branch1, branch2, path]
+        return await run_code2prompt(args)
     except Exception as e:
         logger.exception("Error getting git log")
         return {"error": str(e)}
