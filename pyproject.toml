@@ -6,9 +6,10 @@ authors = [
     { name = "Olivier D'Ancona", email = "olivier.dancona@master.hes-so.ch" },
 ]
 dependencies = [
-    "code2prompt-rs>=3.0.0",
+    "code2prompt-rs>=3.2.0",
     "mcp>=1.4.1",
     "httpx>=0.28.1",
+    "dotenv>=0.9.9",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
