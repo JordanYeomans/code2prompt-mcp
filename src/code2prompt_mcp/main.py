@@ -192,4 +192,4 @@ if __name__ == "__main__":
     logger = colorlog.getLogger(__name__)
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
-    mcp.run(transport='sse')
+    mcp.run(transport='stdio')
