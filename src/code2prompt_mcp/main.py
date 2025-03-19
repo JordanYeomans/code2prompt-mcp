@@ -6,25 +6,14 @@ An MCP server that allows LLMs to extract context from codebases using code2prom
 The LLM can control include/exclude patterns to focus on relevant files only.
 """
 
-import logging
-import subprocess
-import json
 import tempfile
 from typing import Dict, List, Optional, Any
 import asyncio
 import os
+import json
 from mcp.server.fastmcp import FastMCP
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    filename='code2prompt_mcp.log'
-)
-logger = logging.getLogger('code2prompt_mcp')
-
-# Initialize FastMCP server
-mcp = FastMCP("code2prompt")
+import logging
+import colorlog
 
 async def run_code2prompt(args: List[str]) -> Dict[str, Any]:
     """
@@ -42,13 +31,20 @@ async def run_code2prompt(args: List[str]) -> Dict[str, Any]:
             tmp_path = tmp_file.name
         
         # Add output file and format arguments
-        args.extend(["-O", tmp_path, "-F", "json", "--no-clipboard"])
+        output_args = ["-O", tmp_path]
+        if "-F" not in args and "--output-format" not in args:
+            output_args.extend(["-F", "json"])
         
+        # Add no-clipboard flag
+        if "--no-clipboard" not in args:
+            output_args.append("--no-clipboard")
+            
         # Run the code2prompt command
-        logger.info(f"Running: code2prompt {' '.join(args)}")
+        cmd_args = [*args, *output_args]
+        logger.info(f"Running: code2prompt {' '.join(cmd_args)}")
         process = await asyncio.create_subprocess_exec(
             "code2prompt", 
-            *args, 
+            *cmd_args, 
             stdout=asyncio.subprocess.PIPE, 
             stderr=asyncio.subprocess.PIPE
         )
@@ -81,10 +77,16 @@ async def run_code2prompt(args: List[str]) -> Dict[str, Any]:
             except (ValueError, IndexError):
                 logger.warning("Could not parse token count information")
         
+        # Directory path extracted from the args - the last argument is always the path
+        directory = None
+        for i, arg in enumerate(args):
+            if i > 0 and args[i-1] not in ["-i", "-e", "-c", "-t", "-O", "-F", "--tokens", "--sort"]:
+                directory = arg
+        
         # Return the result
         return {
             "prompt": content,
-            "directory": args[-1],
+            "directory": directory or args[-1],
             **token_info
         }
     
@@ -108,7 +110,8 @@ async def get_context(
     template: Optional[str] = None,
     encoding: Optional[str] = None,
     tokens: str = "format",
-    sort: Optional[str] = None
+    sort: Optional[str] = None,
+    output_format: str = "markdown"
 ) -> Dict[str, Any]:
     """
     Retrieve context from a codebase using code2prompt CLI with the specified parameters.
@@ -129,6 +132,7 @@ async def get_context(
         encoding: Token encoding (cl100k, etc.)
         tokens: Token count format (format or raw)
         sort: Sort order for files
+        output_format: Output format (markdown, json, xml)
     
     Returns:
         Dictionary with the prompt and metadata
@@ -150,8 +154,8 @@ async def get_context(
         args.append("--include-priority")
     if line_numbers:
         args.append("-l")
-    if relative_paths:
-        args.append("-L")
+    if not relative_paths:
+        args.append("--absolute-paths")
     if full_directory_tree:
         args.append("--full-directory-tree")
     if no_codeblock:
@@ -172,6 +176,8 @@ async def get_context(
         args.extend(["--tokens", tokens])
     if sort:
         args.extend(["--sort", sort])
+    if output_format:
+        args.extend(["-F", output_format])
     
     # Add the path argument
     args.append(path)
@@ -246,6 +252,25 @@ async def get_git_log(
         return {"error": str(e)}
 
 if __name__ == "__main__":
-    # Initialize and run the server
-    # mcp.run(transport='stdio')
+    # Initialize FastMCP server
+    mcp = FastMCP("code2prompt")
+    handler = colorlog.StreamHandler()
+    formatter = colorlog.ColoredFormatter(
+        "%(log_color)s%(levelname)-8s%(reset)s %(blue)s%(message)s",
+        datefmt=None,
+        reset=True,
+        log_colors={
+            "DEBUG": "cyan",
+            "INFO": "green",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "red,bg_white",
+        },
+        secondary_log_colors={},
+        style="%",
+    )
+    handler.setFormatter(formatter)
+    logger = colorlog.getLogger(__name__)
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
     mcp.run(transport='sse')

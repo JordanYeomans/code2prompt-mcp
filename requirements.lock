@@ -24,6 +24,8 @@ click==8.1.8
     # via uvicorn
 code2prompt-rs==3.2.0
     # via code2prompt-mcp
+colorlog==6.9.0
+    # via code2prompt-mcp
 dotenv==0.9.9
     # via code2prompt-mcp
 h11==0.14.0

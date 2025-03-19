@@ -10,6 +10,7 @@ dependencies = [
     "mcp>=1.4.1",
     "httpx>=0.28.1",
     "dotenv>=0.9.9",
+    "colorlog>=6.9.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
