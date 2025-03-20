@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Code2Prompt MCP Server
 
