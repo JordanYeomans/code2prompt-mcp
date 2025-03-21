@@ -9,10 +9,9 @@
 #   generate-hashes: false
 #   universal: false
 
--e file:.
 annotated-types==0.7.0
     # via pydantic
-anyio==4.8.0
+anyio==4.9.0
     # via httpx
     # via mcp
     # via sse-starlette
@@ -22,30 +21,23 @@ certifi==2025.1.31
     # via httpx
 click==8.1.8
     # via uvicorn
-code2prompt-rs==3.2.0
-    # via code2prompt-mcp
+code2prompt-rs==3.2.1
 colorlog==6.9.0
-    # via code2prompt-mcp
 dotenv==0.9.9
-    # via code2prompt-mcp
 h11==0.14.0
     # via httpcore
     # via uvicorn
 httpcore==1.0.7
     # via httpx
 httpx==0.28.1
-    # via code2prompt-mcp
     # via mcp
 httpx-sse==0.4.0
     # via mcp
 idna==3.10
     # via anyio
     # via httpx
-maturin==1.8.3
-    # via code2prompt-rs
 mcp==1.4.1
-    # via code2prompt-mcp
-patchelf==0.17.2.1
+patchelf==0.17.2.2
     # via code2prompt-rs
 pip==25.0.1
     # via code2prompt-rs
