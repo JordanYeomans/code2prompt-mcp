@@ -1,15 +1,14 @@
 # Smithery.ai configuration
 startCommand:
   type: stdio
-  configSchema:
-    # Define configuration options using JSON Schema (empty for now)
-    {}
+  configSchema: {}
   commandFunction: |
     (config) => ({
-      command: "rye",
-      args: ["run", "python", "src/code2prompt_mcp/main.py"],
+      command: "python",
+      args: ["src/code2prompt_mcp/main.py"],
       env: {}
     })
+
 
 # Optional build configurations
 build:
