@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/odancona-code2prompt-mcp-badge.png)](https://mseep.ai/app/odancona-code2prompt-mcp)
+
 # code2prompt-mcp
 
 An MCP server that generates contextual prompts from codebases, making it easier for AI assistants to understand and work with your code repositories.
