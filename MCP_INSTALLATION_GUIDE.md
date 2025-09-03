@@ -64,20 +64,19 @@ claude mcp add-json "code2prompt" '{
    {
      "mcpServers": {
        "code2prompt": {
-         "command": "/Users/YOUR_USERNAME/path/to/code2prompt-mcp/.venv/bin/python",
+         "command": "/FULL/PATH/TO/code2prompt-mcp/.venv/bin/python",
          "args": [
            "-m",
            "code2prompt_mcp.main"
          ],
-         "cwd": "/Users/YOUR_USERNAME/path/to/code2prompt-mcp"
+         "cwd": "/FULL/PATH/TO/code2prompt-mcp"
        }
      }
    }
    ```
 
    **Important:** Replace the paths with your actual project location:
-   - Replace `YOUR_USERNAME` with your actual username
-   - Replace `path/to/code2prompt-mcp` with the full path to your cloned repository
+   - Replace `/FULL/PATH/TO/code2prompt-mcp` with the complete absolute path to your cloned repository
 
 3. **Example full configuration:**
 
@@ -85,12 +84,12 @@ claude mcp add-json "code2prompt" '{
    {
      "mcpServers": {
        "code2prompt": {
-         "command": "/Users/jordanyeomans/Documents/claude_working/code2prompt-mcp/code2prompt-mcp/.venv/bin/python",
+         "command": "/home/user/projects/code2prompt-mcp/.venv/bin/python",
          "args": [
            "-m",
            "code2prompt_mcp.main"
          ],
-         "cwd": "/Users/jordanyeomans/Documents/claude_working/code2prompt-mcp/code2prompt-mcp"
+         "cwd": "/home/user/projects/code2prompt-mcp"
        }
      }
    }
