@@ -36,11 +36,17 @@ httpx-sse==0.4.0
 idna==3.10
     # via anyio
     # via httpx
+iniconfig==2.1.0
+    # via pytest
 mcp==1.4.1
+packaging==25.0
+    # via pytest
 patchelf==0.17.2.2
     # via code2prompt-rs
 pip==25.0.1
     # via code2prompt-rs
+pluggy==1.6.0
+    # via pytest
 pydantic==2.10.6
     # via mcp
     # via pydantic-settings
@@ -48,6 +54,11 @@ pydantic-core==2.27.2
     # via pydantic
 pydantic-settings==2.8.1
     # via mcp
+pygments==2.19.2
+    # via pytest
+pytest==8.4.1
+    # via pytest-asyncio
+pytest-asyncio==1.1.0
 python-dotenv==1.0.1
     # via dotenv
     # via pydantic-settings
