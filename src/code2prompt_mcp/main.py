@@ -9,6 +9,8 @@ from mcp.server.fastmcp import FastMCP
 import logging
 import colorlog
 import os
+import tempfile
+import uuid
 from pathlib import Path
 from code2prompt_rs import Code2Prompt
 from dotenv import load_dotenv
@@ -103,11 +105,11 @@ async def get_context_for_gemini(
     encoding: Optional[str] = "cl100k",
 ) -> str:
     """
-    Retrieve context from a codebase using code2prompt and save it to a file.
+    Retrieve context from a codebase using code2prompt and save it to a temporary file.
     
-    This function works identically to get_context but saves the output to 
-    "latest_context.txt" in the current working directory and returns the 
-    absolute file path instead of the content.
+    This function works identically to get_context but saves the output to a unique 
+    temporary file in the system's temp directory under "Claude Code Gemini Context" 
+    subfolder and returns the absolute file path instead of the content.
     
     Args:
         path: Path to the codebase
@@ -124,7 +126,7 @@ async def get_context_for_gemini(
         encoding: Token encoding (cl100k, gpt2, p50k_base)
     
     Returns:
-        Absolute file path to the created "latest_context.txt" file
+        Absolute file path to the created temporary context file with UUID
         
     Raises:
         Exception: If file cannot be created due to permissions, disk space, or other IO issues
@@ -151,9 +153,14 @@ async def get_context_for_gemini(
         logger.error(f"Failed to generate context: {str(e)}")
         raise Exception(f"Failed to generate codebase context: {str(e)}")
     
-    # Step 2: Define output file path in current working directory
-    output_file = Path.cwd() / "latest_context.txt"
-    logger.info(f"Writing context to file: {output_file}")
+    # Step 2: Create temp directory and define output file path with UUID
+    temp_dir = Path(tempfile.gettempdir()) / "Claude Code Gemini Context"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate unique filename with UUID to prevent race conditions
+    unique_filename = f"context_{uuid.uuid4().hex}.txt"
+    output_file = temp_dir / unique_filename
+    logger.info(f"Writing context to temp file: {output_file}")
     
     # Step 3: Write content to file with comprehensive error handling
     try:
@@ -209,8 +216,17 @@ async def ask_gemini_question(
     """
     Ask a question about a codebase using Google's Gemini AI.
     
-    This tool extracts codebase context and queries Gemini AI with a specific question.
-    It combines the existing get_context_for_gemini functionality with AI-powered analysis.
+    This tool first extracts structured context from a codebase by scanning files and 
+    generating a comprehensive summary with code snippets, directory structure, and 
+    file content. It then saves this context to a temporary file and sends it along 
+    with your question to Google's Gemini AI model for intelligent analysis and answers.
+    
+    The context extraction process:
+    - Scans the specified directory and subdirectories for relevant files
+    - Applies include/exclude patterns to filter files
+    - Generates formatted output with optional line numbers and code blocks
+    - Saves the complete context to a unique temporary file with UUID naming
+    - Combines the context with your question and sends to Gemini AI
     
     Args:
         question: The natural language question to ask about the codebase (required)
