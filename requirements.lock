@@ -29,7 +29,6 @@ click==8.1.8
     # via uvicorn
 code2prompt-rs==3.2.1
 colorlog==6.9.0
-dotenv==0.9.9
 google-auth==2.40.3
     # via google-genai
 google-genai==1.32.0
@@ -66,7 +65,6 @@ pydantic-core==2.27.2
 pydantic-settings==2.8.1
     # via mcp
 python-dotenv==1.0.1
-    # via dotenv
     # via pydantic-settings
 requests==2.32.5
     # via google-genai
