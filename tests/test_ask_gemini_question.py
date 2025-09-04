@@ -73,6 +73,7 @@ class TestAskGeminiQuestion:
                     result = await ask_gemini_question(
                         question="What does this code do?",
                         path="/test/path",
+                        model="gemini-2.5-pro",
                         include_patterns=["*.py"]
                     )
                     
@@ -88,7 +89,7 @@ class TestAskGeminiQuestion:
                     # Verify Gemini API was called
                     mock_client.models.generate_content.assert_called_once()
                     generate_call = mock_client.models.generate_content.call_args
-                    assert generate_call[1]['model'] == "gemini-2.5-flash"
+                    assert generate_call[1]['model'] == "gemini-2.5-pro"
                     assert "What does this code do?" in generate_call[1]['contents']
                     assert context_content in generate_call[1]['contents']
                     
@@ -96,8 +97,35 @@ class TestAskGeminiQuestion:
                     assert isinstance(result, dict)
                     assert result['answer'] == "This is a sample AI response to the codebase question."
                     assert result['context_file'] == context_file_path
-                    assert result['model_used'] == "gemini-2.5-flash"
+                    assert result['model_used'] == "gemini-2.5-pro"
                     assert isinstance(result['token_count'], int)
+    
+    @pytest.mark.asyncio
+    async def test_gemini_flash_model_selection(self, temp_cwd, mock_gemini_response, mock_context_file, valid_api_key):
+        """Test successful question answering with gemini-2.5-flash model."""
+        context_file_path, context_content = mock_context_file
+        
+        with patch.dict(os.environ, {"GEMINI_API_KEY": valid_api_key}):
+            with patch('code2prompt_mcp.main.get_context_for_gemini', new_callable=AsyncMock) as mock_get_context:
+                with patch('code2prompt_mcp.main.genai.Client') as mock_client_class:
+                    # Setup mocks
+                    mock_get_context.return_value = context_file_path
+                    mock_client = MagicMock()
+                    mock_client_class.return_value = mock_client
+                    mock_client.models.generate_content.return_value = mock_gemini_response
+                    
+                    # Execute function with flash model
+                    result = await ask_gemini_question(
+                        question="What does this code do?",
+                        model="gemini-2.5-flash"
+                    )
+                    
+                    # Verify Gemini API was called with flash model
+                    generate_call = mock_client.models.generate_content.call_args
+                    assert generate_call[1]['model'] == "gemini-2.5-flash"
+                    
+                    # Verify response uses flash model
+                    assert result['model_used'] == "gemini-2.5-flash"
     
     @pytest.mark.asyncio
     async def test_parameter_forwarding(self, temp_cwd, mock_gemini_response, mock_context_file, valid_api_key):
@@ -107,6 +135,7 @@ class TestAskGeminiQuestion:
         test_params = {
             'question': "Test question",
             'path': "/custom/path",
+            'model': "gemini-2.5-flash",
             'include_patterns': ["*.py", "*.md"],
             'exclude_patterns': ["test_*"],
             'include_priority': True,
@@ -135,7 +164,7 @@ class TestAskGeminiQuestion:
                     mock_get_context.assert_called_once()
                     call_args = mock_get_context.call_args[1]
                     
-                    expected_params = {k: v for k, v in test_params.items() if k != 'question'}
+                    expected_params = {k: v for k, v in test_params.items() if k not in ['question', 'model']}
                     for param, value in expected_params.items():
                         assert call_args[param] == value
     
@@ -166,10 +195,22 @@ class TestAskGeminiQuestion:
                     assert isinstance(result['model_used'], str)
                     
                     # Verify specific values
-                    assert result['model_used'] == "gemini-2.5-flash"
+                    assert result['model_used'] == "gemini-2.5-pro"
                     assert result['token_count'] > 0
     
     # Error Handling Tests
+    
+    @pytest.mark.asyncio
+    async def test_invalid_model_error(self, temp_cwd):
+        """Test error handling when invalid model is provided."""
+        with pytest.raises(Exception) as exc_info:
+            await ask_gemini_question(
+                question="Test question",
+                model="invalid-model"
+            )
+        
+        assert "Unsupported model 'invalid-model'" in str(exc_info.value)
+        assert "gemini-2.5-pro, gemini-2.5-flash" in str(exc_info.value)
     
     @pytest.mark.asyncio
     async def test_missing_api_key_error(self, temp_cwd):
@@ -434,7 +475,6 @@ class TestAskGeminiQuestion:
             with patch('code2prompt_mcp.main.get_context_for_gemini', new_callable=AsyncMock) as mock_get_context:
                 with patch('code2prompt_mcp.main.genai.Client') as mock_client_class:
                     with patch('code2prompt_mcp.main.types.GenerateContentConfig') as mock_config_class:
-                        with patch('code2prompt_mcp.main.types.ThinkingConfig') as mock_thinking_config:
                             mock_get_context.return_value = context_file_path
                             mock_client = MagicMock()
                             mock_client_class.return_value = mock_client
@@ -442,14 +482,10 @@ class TestAskGeminiQuestion:
                             
                             await ask_gemini_question(question="Test question")
                             
-                            # Verify ThinkingConfig was created with thinking disabled
-                            mock_thinking_config.assert_called_once_with(thinking_budget=0)
-                            
                             # Verify GenerateContentConfig was created with correct parameters
                             mock_config_class.assert_called_once_with(
-                                temperature=0.7,
-                                max_output_tokens=8192,
-                                thinking_config=mock_thinking_config.return_value
+                                temperature=0.1,
+                                max_output_tokens=30000
                             )
 
 

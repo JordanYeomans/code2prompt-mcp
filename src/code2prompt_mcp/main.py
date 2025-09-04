@@ -222,6 +222,11 @@ async def ask_gemini_question(
     file content. It then saves this context to a temporary file and sends it along 
     with your question to Google's Gemini AI model for intelligent analysis and answers.
     
+    IMPORTANT: Gemini is stateless across invocations - it cannot remember previous 
+    conversations or sessions. For follow-up questions, you MUST include 100% of the 
+    required context again. The tool will always extract the full codebase context 
+    for each question to ensure Gemini has complete information.
+    
     The context extraction process:
     - Scans the specified directory and subdirectories for relevant files
     - Applies include/exclude patterns to filter files
