@@ -201,6 +201,7 @@ async def get_context_for_gemini(
 async def ask_gemini_question(
     question: str,
     path: str = ".",
+    model: str = "gemini-2.5-pro",
     include_patterns: List[str] = [],
     exclude_patterns: List[str] = [],
     include_priority: bool = False,
@@ -231,6 +232,7 @@ async def ask_gemini_question(
     Args:
         question: The natural language question to ask about the codebase (required)
         path: Path to the codebase
+        model: Gemini model to use (gemini-2.5-pro, gemini-2.5-flash, default: gemini-2.5-pro)
         include_patterns: List of glob patterns for files to include
         exclude_patterns: List of glob patterns for files to exclude
         include_priority: Give priority to include patterns
@@ -249,9 +251,16 @@ async def ask_gemini_question(
     Raises:
         Exception: If API key is missing, context extraction fails, or AI API fails
     """
-    logger.info(f"Processing Gemini question about codebase at {path}")
+    logger.info(f"Processing Gemini question about codebase at {path} using model {model}")
     
-    # Step 1: Validate API key
+    # Step 1: Validate model selection
+    supported_models = ["gemini-2.5-pro", "gemini-2.5-flash"]
+    if model not in supported_models:
+        error_msg = f"Unsupported model '{model}'. Supported models: {', '.join(supported_models)}"
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    
+    # Step 2: Validate API key
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         error_msg = (
@@ -262,7 +271,7 @@ async def ask_gemini_question(
         logger.error("Missing GEMINI_API_KEY")
         raise Exception(error_msg)
     
-    # Step 2: Extract context using existing tool
+    # Step 3: Extract context using existing tool
     try:
         context_file_path = await get_context_for_gemini(
             path=path,
@@ -283,7 +292,7 @@ async def ask_gemini_question(
         logger.error(f"Failed to extract context: {str(e)}")
         raise Exception(f"Context extraction failed: {str(e)}")
     
-    # Step 3: Read the context file
+    # Step 4: Read the context file
     try:
         context_file = Path(context_file_path)
         if not context_file.exists():
@@ -295,7 +304,7 @@ async def ask_gemini_question(
         logger.error(f"Failed to read context file: {str(e)}")
         raise Exception(f"Failed to read context file: {str(e)}")
     
-    # Step 4: Initialize Gemini AI client and query
+    # Step 5: Initialize Gemini AI client and query
     try:
         # Initialize the Google AI client
         client = genai.Client(api_key=api_key)
@@ -303,15 +312,14 @@ async def ask_gemini_question(
         # Combine context with question
         full_prompt = f"{context_content}\n\nQuestion: {question}"
         
-        # Generate response using Gemini 2.5 Flash
-        logger.info("Sending query to Gemini AI")
+        # Generate response using the specified Gemini model
+        logger.info(f"Sending query to Gemini AI using model: {model}")
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=model,
             contents=full_prompt,
             config=types.GenerateContentConfig(
-                temperature=0.7,
-                max_output_tokens=8192,
-                thinking_config=types.ThinkingConfig(thinking_budget=0)  # Disable thinking for efficiency
+                temperature=0.1,
+                max_output_tokens=30000
             )
         )
         
@@ -325,7 +333,7 @@ async def ask_gemini_question(
             "answer": answer,
             "context_file": context_file_path,
             "token_count": len(full_prompt.split()),  # Simple token approximation
-            "model_used": "gemini-2.5-flash"
+            "model_used": model
         }
         
     except Exception as e:
