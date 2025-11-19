@@ -26,6 +26,25 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP("code2prompt")
 
 
+def get_default_exclude_patterns() -> List[str]:
+    """
+    Get default exclude patterns for common directories and files that should 
+    typically be excluded from code context analysis to avoid filling context
+    with irrelevant files.
+    
+    Returns:
+        List of glob patterns to exclude by default
+    """
+    return [
+        "venv", ".venv", "env", ".env",  # Virtual environments
+        "__pycache__", "*.pyc",          # Python cache
+        "node_modules",                   # Node.js dependencies
+        ".git", ".idea", ".vscode",      # Version control and IDEs
+        "*.log", "logs",                 # Log files
+        ".DS_Store", "Thumbs.db",        # OS generated files
+    ]
+
+
 @mcp.tool()
 async def get_context(
     path: str = ".",
@@ -44,10 +63,14 @@ async def get_context(
     """
     Retrieve context from a codebase using code2prompt with the specified parameters.
     
+    NOTE FOR AI AGENTS: Always consider excluding environment files (venv, __pycache__, 
+    node_modules, .git, .idea, etc.) using exclude_patterns to prevent context pollution 
+    with irrelevant files. This tool automatically includes common exclusions by default.
+    
     Args:
         path: Path to the codebase
         include_patterns: List of glob patterns for files to include
-        exclude_patterns: List of glob patterns for files to exclude
+        exclude_patterns: List of glob patterns for files to exclude (merged with defaults)
         include_priority: Give priority to include patterns
         line_numbers: Add line numbers to code
         absolute_paths: Use absolute paths instead of relative paths
@@ -61,13 +84,17 @@ async def get_context(
     Returns:
         Dictionary with the prompt and metadata
     """
-    logger.info(f"Getting context from {path} with include patterns: {include_patterns}, exclude patterns: {exclude_patterns}")
+    # Merge user exclusions with defaults
+    default_exclusions = get_default_exclude_patterns()
+    merged_exclusions = default_exclusions + [p for p in exclude_patterns if p not in default_exclusions]
+    
+    logger.info(f"Getting context from {path} with include patterns: {include_patterns}, exclude patterns: {merged_exclusions}")
     
     # Initialize the Code2Prompt instance with all parameters
     prompt = Code2Prompt(
         path=path,
         include_patterns=include_patterns,
-        exclude_patterns=exclude_patterns,
+        exclude_patterns=merged_exclusions,
         include_priority=include_priority,
         line_numbers=line_numbers,
         absolute_paths=absolute_paths,
@@ -201,7 +228,7 @@ async def get_context_for_gemini(
 async def ask_gemini_question(
     question: str,
     path: str = ".",
-    model: str = "gemini-2.5-pro",
+    model: str = "gemini-3-pro-preview",
     include_patterns: List[str] = [],
     exclude_patterns: List[str] = [],
     include_priority: bool = False,
@@ -227,6 +254,10 @@ async def ask_gemini_question(
     required context again. The tool will always extract the full codebase context 
     for each question to ensure Gemini has complete information.
     
+    NOTE FOR AI AGENTS: This tool automatically excludes environment files (venv, 
+    __pycache__, node_modules, .git, .idea, etc.) to prevent context pollution. 
+    Consider additional exclusions for large codebases to stay within token limits.
+    
     The context extraction process:
     - Scans the specified directory and subdirectories for relevant files
     - Applies include/exclude patterns to filter files
@@ -237,7 +268,7 @@ async def ask_gemini_question(
     Args:
         question: The natural language question to ask about the codebase (required)
         path: Path to the codebase
-        model: Gemini model to use (gemini-2.5-pro, gemini-2.5-flash, default: gemini-2.5-pro)
+        model: Gemini model to use (gemini-3-pro-preview, default: gemini-3-pro-preview)
         include_patterns: List of glob patterns for files to include
         exclude_patterns: List of glob patterns for files to exclude
         include_priority: Give priority to include patterns
@@ -259,9 +290,9 @@ async def ask_gemini_question(
     logger.info(f"Processing Gemini question about codebase at {path} using model {model}")
     
     # Step 1: Validate model selection
-    supported_models = ["gemini-2.5-pro", "gemini-2.5-flash"]
+    supported_models = ["gemini-3-pro-preview"]
     if model not in supported_models:
-        error_msg = f"Unsupported model '{model}'. Supported models: {', '.join(supported_models)}"
+        error_msg = f"Unsupported model '{model}'. Currently supported: {', '.join(supported_models)}"
         logger.error(error_msg)
         raise Exception(error_msg)
     
